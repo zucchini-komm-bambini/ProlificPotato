@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trautonium</title>
+<meta name="description" content="Mixtur-Trautonium nach Friedrich Trautwein und Oskar Sala zum Spielen auf dem Touchscreen, Klangerzeugung in WebAssembly.">
+<meta name="theme-color" content="#1f1713">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trautonium">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preload" href="trautonium.wasm" as="fetch" type="application/wasm" crossorigin>
+<style>html{height:100vh;height:100dvh;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand">
+      <span class="lamp" id="lamp" aria-hidden="true"></span>
+      <span class="wordmark">Trautonium</span>
+    </div>
+    <canvas class="scope" id="scope" aria-hidden="true"></canvas>
+    <div class="bar-actions">
+      <button type="button" class="icon-btn" id="btn-full" aria-label="Vollbild" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+      <button type="button" class="btn" id="btn-panel" aria-controls="panel">Klang</button>
+    </div>
+  </header>
+
+  <main class="manuals">
+    <section class="manual" aria-label="Manual I">
+      <div class="side">
+        <button type="button" class="patch-btn" id="patch-0" aria-label="Klang von Manual I einstellen">
+          <span class="roman">I</span><span class="pname" id="pname-0">Glimmlampe</span>
+        </button>
+        <div class="mix" id="mix-0" role="group" aria-label="Mixtur Manual I">
+          <button type="button" aria-pressed="true">1</button><button type="button" aria-pressed="false">2</button><button type="button" aria-pressed="false">3</button><button type="button" aria-pressed="false">4</button>
+        </div>
+        <div class="mix-name" id="mix-name-0">Grundton</div>
+      </div>
+      <canvas class="wire" id="wire-0" role="img" aria-label="Draht von Manual I: waagrecht gleiten ändert die Tonhöhe, tiefer drücken macht lauter"></canvas>
+    </section>
+    <section class="manual" aria-label="Manual II">
+      <div class="side">
+        <button type="button" class="patch-btn" id="patch-1" aria-label="Klang von Manual II einstellen">
+          <span class="roman">II</span><span class="pname" id="pname-1">Tiefbass</span>
+        </button>
+        <div class="mix" id="mix-1" role="group" aria-label="Mixtur Manual II">
+          <button type="button" aria-pressed="true">1</button><button type="button" aria-pressed="false">2</button><button type="button" aria-pressed="false">3</button><button type="button" aria-pressed="false">4</button>
+        </div>
+        <div class="mix-name" id="mix-name-1">Grund + Unteroktave</div>
+      </div>
+      <canvas class="wire" id="wire-1" role="img" aria-label="Draht von Manual II: waagrecht gleiten ändert die Tonhöhe, tiefer drücken macht lauter"></canvas>
+    </section>
+  </main>
+
+  <aside class="panel" id="panel" aria-label="Klangeinstellungen" hidden>
+    <div class="panel-head">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-0" aria-selected="true">Manual I</button>
+        <button type="button" role="tab" id="tab-1" aria-selected="false">Manual II</button>
+        <button type="button" role="tab" id="tab-g" aria-selected="false">Allgemein</button>
+      </div>
+      <button type="button" class="btn" id="btn-close">Fertig</button>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
+  </aside>
+
+  <div class="overlay" id="start">
+    <div class="start-card">
+      <p class="eyebrow">Mixtur-Trautonium nach Trautwein und Sala</p>
+      <h1>Trautonium</h1>
+      <ul class="howto">
+        <li><b>Waagrecht</b> über den Draht gleiten: Tonhöhe, stufenlos.</li>
+        <li><b>Tiefer</b> drücken, also weiter unten berühren: lauter und heller.</li>
+        <li><b>1 bis 4</b> schalten die Mixtur aus Untertönen um.</li>
+      </ul>
+      <button type="button" class="btn-start" id="btn-start">Einschalten</button>
+      <p class="hint">Querformat und Kopfhörer empfohlen.</p>
+      <p class="error" id="start-error" role="alert" hidden></p>
+    </div>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
