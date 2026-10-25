@@ -1,6 +1,8 @@
 // Rauchtest im echten Browser (Chromium über Playwright):
 // Seite laden, einschalten, Draht per Touch spielen, Klang am Oszilloskop prüfen.
 // Aufruf: node tests/browser-smoke.cjs [Ordner für Bildschirmfotos]
+// Mit TRAUTONIUM_URL=http://server:port/ wird eine laufende Installation geprüft
+// statt docs/ über einen eigenen kleinen Server.
 // Voraussetzung: Playwright mit Chromium ist installiert.
 
 const http = require('node:http');
@@ -37,8 +39,11 @@ const lampOpacity = (page) => page.$eval('#lamp', (n) => Number(n.style.opacity 
 
 (async () => {
   const shots = process.argv[2];
-  const server = await serve();
-  const base = `http://127.0.0.1:${server.address().port}/`;
+  const server = process.env.TRAUTONIUM_URL ? null : await serve();
+  const base = process.env.TRAUTONIUM_URL || `http://127.0.0.1:${server.address().port}/`;
+  // AudioWorklet gibt es nur in sicheren Kontexten (HTTPS oder localhost)
+  const secure = /^https:|^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(base);
+  console.log(`Prüfe ${base}${secure ? '' : ' (ohne HTTPS: Rückfallebene erwartet)'}`);
   const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   let failed = false;
   const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FEHLER'} ${msg}`); if (!ok) failed = true; };
@@ -50,7 +55,8 @@ const lampOpacity = (page) => page.$eval('#lamp', (n) => Number(n.style.opacity 
       ['ohne-worklet', { width: 844, height: 390 }, 'ScriptProcessor'],
       ['ios-nachbau', { width: 844, height: 390 }, 'AudioWorklet'],
     ];
-    for (const [name, viewport, mode] of runs) {
+    for (const [name, viewport, wanted] of runs) {
+      const mode = secure ? wanted : 'ScriptProcessor';
       const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
       const page = await ctx.newPage();
       // Älteren Browser ohne AudioWorklet nachstellen
@@ -120,7 +126,7 @@ const lampOpacity = (page) => page.$eval('#lamp', (n) => Number(n.style.opacity 
     }
   } finally {
     await browser.close();
-    server.close();
+    if (server) server.close();
   }
   process.exit(failed ? 1 : 0);
 })();
