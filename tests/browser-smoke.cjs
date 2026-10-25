@@ -48,12 +48,16 @@ const lampOpacity = (page) => page.$eval('#lamp', (n) => Number(n.style.opacity 
       ['quer', { width: 844, height: 390 }, 'AudioWorklet'],
       ['hoch', { width: 390, height: 844 }, 'AudioWorklet'],
       ['ohne-worklet', { width: 844, height: 390 }, 'ScriptProcessor'],
+      ['ios-nachbau', { width: 844, height: 390 }, 'AudioWorklet'],
     ];
     for (const [name, viewport, mode] of runs) {
       const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
       const page = await ctx.newPage();
       // Älteren Browser ohne AudioWorklet nachstellen
       if (mode === 'ScriptProcessor') await page.addInitScript(() => { delete window.AudioWorkletNode; });
+      // Safari-Kennzeichen nachstellen: webkitAudioContext auf einem Touchgerät
+      const ios = name === 'ios-nachbau';
+      if (ios) await page.addInitScript(() => { window.webkitAudioContext = window.AudioContext; });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -99,6 +103,14 @@ const lampOpacity = (page) => page.$eval('#lamp', (n) => Number(n.style.opacity 
       if (shots) await page.screenshot({ path: path.join(shots, `${name}-allgemein.png`) });
       const about = await page.textContent('#panel-body');
       check(about.includes(`Audioausgabe: ${mode}`), `${name}: Audioausgabe über ${mode}`);
+      check(about.includes('Zustand: läuft'), `${name}: AudioContext läuft`);
+      if (ios) check(about.includes('Stummmodus-Umgehung: spielt'), `${name}: stilles <audio> läuft (${about.match(/Stummmodus-Umgehung: [^A-ZÄÖÜ]*/)})`);
+      else check(!about.includes('Stummmodus-Umgehung'), `${name}: keine iOS-Umgehung nötig`);
+      // Testton muss am Oszilloskop ankommen
+      await page.click('text=Testton a¹ spielen');
+      await page.waitForTimeout(350);
+      const tone = await lampOpacity(page);
+      check(tone > 0.4, `${name}: Testton erklingt (Glimmlampe ${tone.toFixed(2)})`);
       await page.tap('#btn-close');
 
       const scrollW = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

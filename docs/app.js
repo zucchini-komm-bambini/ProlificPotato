@@ -3,6 +3,10 @@
 import { PATCHES, VOWELS, patchById, soundFromPatch, divisorInfo } from './presets.js';
 import { Manual } from './manual.js';
 import { el, fmt, slider, segmented, stepper, section } from './ui.js';
+import {
+  isAppleTouch, requestPlaybackSession, startSilentElement, pauseSilentElement,
+  silentElementPaused, audioSessionStatus,
+} from './ios-audio.js';
 
 const STORE_KEY = 'trautonium.v1';
 const BASE_NOTE = 48; // C3: tiefster Ton von Manual I in Lage 0
@@ -136,12 +140,15 @@ async function startAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) throw new Error('Dieser Browser unterstützt kein Web Audio.');
   if (typeof WebAssembly !== 'object') throw new Error('Dieser Browser unterstützt kein WebAssembly.');
-  // iOS: auch bei stummgeschaltetem Klingelschalter hörbar
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* älteres iOS */ }
-
+  // iOS: auch im Stummmodus hörbar (siehe ios-audio.js)
+  requestPlaybackSession();
   const ctx = new Ctx({ latencyHint: 'interactive' });
-  const resumed = ctx.resume(); // muss innerhalb der Nutzergeste passieren
+  startSilentElement(ctx.sampleRate); // beides muss innerhalb der Nutzergeste passieren
+  const resumed = ctx.resume();
   audio.ctx = ctx;
+  ctx.addEventListener('statechange', () => {
+    if (!panel.hidden && panelTab === 'g') renderPanel();
+  });
   const wasm = await wasmBytes;
 
   let out = null;
@@ -165,8 +172,20 @@ async function startAudio() {
   drawScope();
 }
 
+// Bei jeder Berührung: nach Anruf, App-Wechsel oder Sperrbildschirm wieder anwerfen.
 function resumeIfNeeded() {
-  if (audio.ctx && audio.ctx.state !== 'running') audio.ctx.resume();
+  if (!audio.ctx) return;
+  if (silentElementPaused()) startSilentElement(audio.ctx.sampleRate);
+  if (audio.ctx.state !== 'running') audio.ctx.resume();
+}
+
+function testTone() {
+  resumeIfNeeded();
+  E('voice', 0, 1, 69, 0.85);
+  setTimeout(() => {
+    E('voice', 0, 0, 0, 0);
+    if (!panel.hidden && panelTab === 'g') renderPanel();
+  }, 700);
 }
 
 let wakeLock = null;
@@ -440,10 +459,32 @@ function globalControls() {
         get: () => g.markers, set: (v) => { g.markers = v; redrawManuals(); save(); },
       }),
       slider({ id: id('a4'), label: 'Stimmton a¹', min: 415, max: 466, step: 1, get: () => g.a4, set: (v) => { g.a4 = v; changed(); redrawManuals(); }, format: fmt.unit(0, 'Hz') })),
+    section('Ton-Diagnose', ...diagnostics()),
     section('Über dieses Instrument',
       el('p', { class: 'note', text: 'Friedrich Trautwein stellte das Trautonium 1930 in Berlin vor. Gespielt wird es auf einem Draht, der über eine Metallschiene gespannt ist: Wo der Finger den Draht auf die Schiene drückt, entsteht die Tonhöhe, und der Fingerdruck bestimmt die Lautstärke. Oskar Sala baute daraus das Mixtur-Trautonium mit zwei Manualen und Untertönen, mit dem er unter anderem die Vogelschreie für Hitchcocks „Die Vögel“ (1963) erzeugte.' }),
-      el('p', { class: 'note', text: `Diese Nachbildung rechnet in WebAssembly (aus C übersetzt). Audioausgabe: ${audio.mode || 'noch nicht eingeschaltet'}${audio.ctx ? `, ${audio.ctx.sampleRate} Hz` : ''}.` }),
+      el('p', { class: 'note', text: 'Diese Nachbildung rechnet in WebAssembly, übersetzt aus C.' }),
       el('button', { type: 'button', class: 'btn btn-quiet', text: 'Alle Einstellungen zurücksetzen', onclick: resetAll })),
+  ];
+}
+
+function diagnostics() {
+  const ctx = audio.ctx;
+  const ms = (s) => (s > 0 ? `${Math.round(s * 1000)} ms` : 'unbekannt');
+  const rows = [
+    ['Audioausgabe', audio.mode || 'noch nicht eingeschaltet'],
+    ['Zustand', ctx ? { running: 'läuft', suspended: 'angehalten', interrupted: 'unterbrochen', closed: 'beendet' }[ctx.state] || ctx.state : '–'],
+    ['Abtastrate', ctx ? `${ctx.sampleRate} Hz` : '–'],
+    ['Latenz', ctx ? `${ms(ctx.baseLatency)} + Ausgabe ${ms(ctx.outputLatency)}` : '–'],
+  ];
+  if (isAppleTouch) {
+    const st = audioSessionStatus();
+    rows.push(['Audio-Sitzung', st.session], ['Stummmodus-Umgehung', st.element]);
+  }
+  return [
+    el('ul', { class: 'diag' }, rows.map(([k, v]) => el('li', {}, el('span', { text: `${k}: ` }), el('b', { text: v })))),
+    el('div', { class: 'select-row' },
+      el('button', { type: 'button', class: 'btn btn-quiet', text: 'Testton a¹ spielen', onclick: testTone })),
+    el('p', { class: 'note', text: 'Bewegt sich beim Testton die Linie oben im Oszilloskop, aber es ist nichts zu hören, dann kommt der Ton beim Gerät nicht an. Auf dem iPhone: Stummmodus ausschalten (Schalter an der Seite oder Glocke im Kontrollzentrum), Lautstärketasten drücken, während ein Ton klingt, und prüfen, ob Kopfhörer per Bluetooth verbunden sind.' }),
   ];
 }
 
@@ -483,6 +524,7 @@ function resetAll() {
 const overlay = document.getElementById('start');
 const startBtn = document.getElementById('btn-start');
 const startError = document.getElementById('start-error');
+if (isAppleTouch) document.getElementById('ios-hint').hidden = false;
 
 startBtn.addEventListener('click', async () => {
   startBtn.disabled = true;
@@ -518,6 +560,7 @@ if (document.fullscreenEnabled && document.documentElement.requestFullscreen) {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     for (const m of manuals) m.releaseAll();
+    pauseSilentElement();
   } else {
     requestWakeLock();
   }

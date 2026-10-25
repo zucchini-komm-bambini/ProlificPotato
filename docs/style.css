@@ -238,6 +238,8 @@ select, input[type="text"] {
   font-size: 16px; /* verhindert Zoom bei Fokus auf iOS */
 }
 .select-row { display: flex; gap: 8px; }
+.diag { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px; color: var(--enamel-dim); }
+.diag b { font: 500 13px var(--font-data); color: var(--enamel); }
 .select-row select { flex: 1 1 auto; min-width: 0; }
 
 input[type="range"] {

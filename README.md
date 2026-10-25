@@ -25,8 +25,29 @@ anderem die Vogelschreie für Hitchcocks „Die Vögel“ (1963).
 
 Querformat und Kopfhörer sind empfohlen. Auf dem Startbildschirm muss einmal
 „Einschalten“ getippt werden, weil Browser Ton erst nach einer Berührung
-erlauben. Auf iOS spielt der Ton auch bei stummgeschaltetem Klingelschalter
-(ab Safari 17 über `navigator.audioSession`).
+erlauben.
+
+### Kein Ton auf dem iPhone?
+
+iOS behandelt Web Audio als „Ambient“-Ton: Im Stummmodus (Klingelschalter
+bzw. Aktionstaste, Glocke im Kontrollzentrum) bleibt er stumm, während
+Videos und `<audio>`-Elemente weiterspielen. Das betrifft jede Web-Audio-Seite,
+nicht nur diese. Die App versucht zwei Gegenmittel (`docs/ios-audio.js`):
+
+1. `navigator.audioSession.type = 'playback'` aus der W3C Audio Session API,
+   wo der Browser sie anbietet,
+2. ein stilles, endlos geloopte `<audio>`-Element, das beim Einschalten
+   startet und die Audio-Sitzung in die Kategorie „Wiedergabe“ hebt.
+   Nebenwirkung: iOS kann im Sperrbildschirm eine Medienanzeige
+   „Trautonium“ einblenden.
+
+Unter *Klang → Allgemein → Ton-Diagnose* zeigt die App, welcher Weg aktiv ist,
+und spielt auf Wunsch einen Testton. Bewegt sich dabei das Oszilloskop, aber
+es ist nichts zu hören, kommt der Ton beim Gerät nicht an: Stummmodus
+ausschalten, Lautstärketasten drücken, während ein Ton klingt, und
+Bluetooth-Kopfhörer prüfen. In eingebetteten Ansichten anderer Apps (etwa der
+Artifact-Vorschau der Claude-App) entscheidet zusätzlich die umgebende App, ob
+diese Umgehung greift.
 
 ## Klangerzeugung (`dsp/trautonium.c`)
 
@@ -59,6 +80,7 @@ docs/                   die fertige Web-App, direkt auslieferbar
   presets.js            Klangfarben, Mixturen, Notennamen
   ui.js                 kleine DOM-Helfer
   worklet.js            AudioWorklet und Rückfallebene
+  ios-audio.js          Ton trotz Stummmodus auf iPhone und iPad
   trautonium.wasm       übersetzte Engine (eingecheckt)
 tests/engine.test.mjs   Tests der Engine (Tonhöhe, Untertöne, Pegel, Stabilität)
 tests/browser-smoke.cjs Rauchtest im echten Browser
