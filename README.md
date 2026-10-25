@@ -133,12 +133,9 @@ Wegwerf-Container, auf dem Server selbst wird nichts installiert):
 
 ```sh
 docker run --rm -v /mnt/user/appdata:/git alpine/git \
-  clone --depth 1 -b claude/trautonium-wasm \
+  clone --depth 1 -b main \
   https://github.com/zucchini-komm-bambini/ProlificPotato.git /git/trautonium
 ```
-
-Nach dem Mergen nach `main` statt `claude/trautonium-wasm` einfach `main`
-angeben.
 
 **2. Container anlegen** unter *Docker → Add Container*:
 
